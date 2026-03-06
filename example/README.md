@@ -1,7 +1,7 @@
-# 面试题功能实现说明 (Remind)
+# 面试题功能实现说明 (README)
 
 ## 修改文件
-`jsmind/example/demo.html`
+`example/demo.html`
 
 ## 实现功能清单
 1. **鼠标交互**
@@ -29,7 +29,8 @@
 1. **进入项目目录**
    打开终端（Terminal），确保位于项目根目录：
    ```bash
-   cd d:\jsmind\jsmind
+   # 进入项目文件夹 (假设文件夹名为 jsmind)
+   cd jsmind
    ```
 
 2. **安装依赖**
