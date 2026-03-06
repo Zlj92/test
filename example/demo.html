@@ -1,107 +1,329 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8" />
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-        <title>jsMind</title>
-        <link type="text/css" rel="stylesheet" href="../style/jsmind.css" />
-        <style type="text/css">
-            #jsmind_container {
-                width: 800px;
-                height: 500px;
-                border: solid 1px #ccc;
-                /*background:#f4f4f4;*/
-                background: #f4f4f4;
-            }
-        </style>
-    </head>
-    <body>
-        <input type="file" onchange="load_file(this);" />
-        <button onclick="save_nodetree();">nodetree</button>
-        <button onclick="replay();">replay</button>
-        <div id="jsmind_container"></div>
-        <script type="text/javascript" src="../es6/jsmind.js"></script>
-        <script type="text/javascript" src="../es6/jsmind.draggable-node.js"></script>
-        <script type="text/javascript" src="../features/jsmind.shell.js"></script>
-        <script type="text/javascript">
-            var _jm = null;
-            function load_jsmind() {
-                var mind = {
-                    meta: {
-                        name: 'demo',
-                        author: 'hizzgdev@163.com',
-                        version: '0.2',
-                    },
-                    format: 'node_array',
-                    data: [
-                        { id: 'root', isroot: true, topic: 'jsMind' },
 
-                        { id: 'sub1', parentid: 'root', topic: 'sub1' },
-                        { id: 'sub11', parentid: 'sub1', topic: 'sub11' },
-                        { id: 'sub12', parentid: 'sub1', topic: 'sub12' },
-                        { id: 'sub13', parentid: 'sub1', topic: 'sub13' },
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>jsMind</title>
+    <link type="text/css" rel="stylesheet" href="../style/jsmind.css" />
+    <style type="text/css">
+        #jsmind_container {
+            width: 800px;
+            height: 500px;
+            border: solid 1px #ccc;
+            /*background:#f4f4f4;*/
+            background: #f4f4f4;
+        }
 
-                        { id: 'sub2', parentid: 'root', topic: 'sub2' },
-                        { id: 'sub21', parentid: 'sub2', topic: 'sub21' },
-                        { id: 'sub22', parentid: 'sub2', topic: 'sub22' },
+        /* 样式：简单的键值对编辑窗口 */
+        #kv_editor {
+            display: none;
+            position: absolute;
+            width: 300px;
+            background: white;
+            border: 1px solid #999;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            z-index: 1000;
+            font-family: sans-serif;
+            font-size: 14px;
+        }
 
-                        { id: 'sub3', parentid: 'root', topic: 'sub3' },
-                    ],
-                };
-                var options = {
-                    container: 'jsmind_container',
-                    editable: true,
-                    theme: 'primary',
-                    log_level: 'debug',
-                    shortcut: {
-                        handles: {
-                            test: function (j, e) {
-                                console.log(j);
-                            },
+        #kv_editor h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .kv-row {
+            display: flex;
+            margin-bottom: 5px;
+            gap: 5px;
+        }
+
+        .kv-row input {
+            width: 100px;
+            padding: 3px;
+        }
+
+        .kv-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+
+        .btn-delete {
+            background: #ff4444;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .btn-add {
+            width: 100%;
+            padding: 5px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <input type="file" onchange="load_file(this);" />
+    <button onclick="save_nodetree();">nodetree</button>
+    <button onclick="replay();">replay</button>
+    <div id="jsmind_container"></div>
+
+    <!-- 编辑窗口 DOM -->
+    <div id="kv_editor">
+        <h3 id="editor_title">Node Data</h3>
+        <div id="kv_list" class="kv-list">
+            <!-- 动态生成键值对 -->
+        </div>
+        <div class="kv-row">
+            <input type="text" id="new_key" placeholder="Key">
+            <input type="text" id="new_val" placeholder="Value">
+        </div>
+        <button class="btn-add" id="btn_add">Add Key-Value</button>
+    </div>
+
+    <!-- 引用 js-legacy 以兼容 -->
+    <script type="text/javascript" src="../js-legacy/jsmind.js"></script>
+    <script type="text/javascript" src="../js-legacy/jsmind.draggable-node.js"></script>
+    <script type="text/javascript" src="../features/jsmind.shell.js"></script>
+    <script type="text/javascript">
+        var _jm = null;
+        function load_jsmind() {
+            var mind = {
+                meta: {
+                    name: 'demo',
+                    author: 'hizzgdev@163.com',
+                    version: '0.2',
+                },
+                format: 'node_array',
+                data: [
+                    { id: 'root', isroot: true, topic: 'jsMind' },
+
+                    { id: 'sub1', parentid: 'root', topic: 'sub1' },
+                    { id: 'sub11', parentid: 'sub1', topic: 'sub11' },
+                    { id: 'sub12', parentid: 'sub1', topic: 'sub12' },
+                    { id: 'sub13', parentid: 'sub1', topic: 'sub13' },
+
+                    { id: 'sub2', parentid: 'root', topic: 'sub2' },
+                    { id: 'sub21', parentid: 'sub2', topic: 'sub21' },
+                    { id: 'sub22', parentid: 'sub2', topic: 'sub22' },
+
+                    { id: 'sub3', parentid: 'root', topic: 'sub3' },
+                ],
+            };
+            var options = {
+                container: 'jsmind_container',
+                editable: true,
+                theme: 'primary',
+                log_level: 'debug',
+                shortcut: {
+                    handles: {
+                        test: function (j, e) {
+                            console.log(j);
                         },
-                        mapping: {
-                            test: 89,
-                        },
                     },
-                    view: {
-                        expander_style: 'char',
+                    mapping: {
+                        test: 89,
                     },
-                };
-                _jm = new jsMind(options);
-                _jm.show(mind);
-                // jm.set_readonly(true);
-                // var mind_data = jm.get_data();
-                // alert(mind_data);
-            }
+                },
+                view: {
+                    expander_style: 'char',
+                },
+            };
+            _jm = new jsMind(options);
+            _jm.show(mind);
 
-            function load_file(fi) {
-                var files = fi.files;
-                if (files.length > 0) {
-                    var file_data = files[0];
-                    jsMind.util.file.read(file_data, function (freemind_data, jsmind_name) {
-                        var mind = jsmind_data;
-                        if (!!mind) {
-                            _jm.show(mind);
-                        } else {
-                            console.error('can not open this file as mindmap');
+            // 初始化面试题功能
+            init_kv_editor();
+        }
+
+        function load_file(fi) {
+            var files = fi.files;
+            if (files.length > 0) {
+                var file_data = files[0];
+                jsMind.util.file.read(file_data, function (freemind_data, jsmind_name) {
+                    var mind = jsmind_data;
+                    if (!!mind) {
+                        _jm.show(mind);
+                    } else {
+                        console.error('can not open this file as mindmap');
+                    }
+                });
+            }
+        }
+
+        function save_nodetree() {
+            var mind_data = _jm.get_data('node_tree');
+            console.log(mind_data);
+        }
+
+        function replay() {
+            var shell = _jm.shell;
+            if (!!shell) {
+                shell.replay();
+            }
+        }
+
+        // ==========================================
+        // 面试题功能实现
+        // ==========================================
+        var currentSelectedNodeId = null;
+        var editor, kvList;
+
+        function init_kv_editor() {
+            editor = document.getElementById('kv_editor');
+            kvList = document.getElementById('kv_list');
+            var container = document.getElementById('jsmind_container');
+
+            // 1. 鼠标移上去窗口出现 (Hover)
+            container.addEventListener('mouseover', function (e) {
+                var target = e.target;
+
+                // 查找是否是节点 (jmnode)
+                // 兼容性处理
+                var jmnode = null;
+                if (target.closest) {
+                    jmnode = target.closest('jmnode');
+                } else {
+                    // Fallback for older browsers if needed
+                    var p = target;
+                    while (p && p !== container) {
+                        if (p.tagName && p.tagName.toLowerCase() === 'jmnode') {
+                            jmnode = p;
+                            break;
                         }
-                    });
+                        p = p.parentNode;
+                    }
                 }
-            }
 
-            function save_nodetree() {
-                var mind_data = _jm.get_data('node_tree');
-                console.log(mind_data);
-            }
+                if (jmnode) {
+                    var nodeId = jmnode.getAttribute('nodeid');
+                    if (nodeId) {
+                        currentSelectedNodeId = nodeId;
 
-            function replay() {
-                var shell = _jm.shell;
-                if (!!shell) {
-                    shell.replay();
+                        // 显示窗口
+                        editor.style.display = 'block';
+
+                        // 定位窗口
+                        var rect = jmnode.getBoundingClientRect();
+                        var left = rect.right + 10;
+                        var top = rect.top;
+
+                        // 简单的防止溢出视口逻辑
+                        if (left + 320 > window.innerWidth) {
+                            // 如果右侧放不下，放下面或左侧
+                            left = rect.left - 320;
+                            if (left < 0) left = 10;
+                        }
+
+                        editor.style.left = left + 'px';
+                        editor.style.top = top + 'px';
+
+                        renderEditor(nodeId);
+                    }
                 }
-            }
+            });
 
-            load_jsmind();
-        </script>
-    </body>
+            // 防止在编辑器里操作时触发关闭
+            editor.addEventListener('mousedown', function (e) {
+                e.stopPropagation();
+            });
+            // 防止移动时冒泡
+            editor.addEventListener('mouseover', function (e) {
+                e.stopPropagation();
+            });
+
+
+            // 1. 点击空白处窗口消失
+            document.addEventListener('mousedown', function (e) {
+                if (editor.contains(e.target)) return;
+
+                var target = e.target;
+                var jmnode = target.closest ? target.closest('jmnode') : null;
+                if (jmnode) return; // 点击节点时不关闭
+
+                editor.style.display = 'none';
+                currentSelectedNodeId = null;
+            });
+
+            // 2. 窗口添加键值对
+            document.getElementById('btn_add').onclick = function () {
+                if (!currentSelectedNodeId) return;
+                var key = document.getElementById('new_key').value;
+                var val = document.getElementById('new_val').value;
+                if (key) {
+                    var node = _jm.get_node(currentSelectedNodeId);
+                    var data = getCustomData(node);
+                    data[key] = val;
+
+                    document.getElementById('new_key').value = '';
+                    document.getElementById('new_val').value = '';
+
+                    renderEditor(currentSelectedNodeId);
+                }
+            };
+        }
+
+        // 获取自定义数据
+        function getCustomData(node) {
+            if (!node.data.customFields) {
+                node.data.customFields = {};
+            }
+            return node.data.customFields;
+        }
+
+        // 3. 窗口里可以实现键值对的展示
+        function renderEditor(nodeId) {
+            var node = _jm.get_node(nodeId);
+            if (!node) return;
+
+            document.getElementById('editor_title').innerText = node.topic;
+            kvList.innerHTML = '';
+            var data = getCustomData(node);
+
+            Object.keys(data).forEach(function (key) {
+                var row = document.createElement('div');
+                row.className = 'kv-row';
+
+                var keySpan = document.createElement('span');
+                keySpan.style.width = '100px';
+                keySpan.innerText = key;
+
+                // 5. 值的修改并自动保存
+                var valInput = document.createElement('input');
+                valInput.value = data[key];
+                valInput.oninput = function (e) {
+                    data[key] = e.target.value;
+                };
+
+                // 4. 键值对的删除
+                var delBtn = document.createElement('button');
+                delBtn.className = 'btn-delete';
+                delBtn.innerText = 'X';
+                delBtn.onclick = function () {
+                    delete data[key];
+                    renderEditor(nodeId);
+                };
+
+                row.appendChild(keySpan);
+                row.appendChild(valInput);
+                row.appendChild(delBtn);
+                kvList.appendChild(row);
+            });
+        }
+
+        load_jsmind();
+    </script>
+</body>
+
 </html>
