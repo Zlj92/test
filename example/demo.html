@@ -175,27 +175,23 @@
         }
 
         // ==========================================
-        // 面试题功能实现
+        // 键值对编辑功能实现
         // ==========================================
         var currentSelectedNodeId = null;
         var editor, kvList;
+        var hoverTimer = null;
 
         function init_kv_editor() {
             editor = document.getElementById('kv_editor');
             kvList = document.getElementById('kv_list');
             var container = document.getElementById('jsmind_container');
 
-            // 1. 鼠标移上去窗口出现 (Hover)
+            // 1. 监听鼠标悬停事件
             container.addEventListener('mouseover', function (e) {
                 var target = e.target;
+                var jmnode = target.closest ? target.closest('jmnode') : null;
 
-                // 查找是否是节点 (jmnode)
-                // 兼容性处理
-                var jmnode = null;
-                if (target.closest) {
-                    jmnode = target.closest('jmnode');
-                } else {
-                    // Fallback for older browsers if needed
+                if (!jmnode) {
                     var p = target;
                     while (p && p !== container) {
                         if (p.tagName && p.tagName.toLowerCase() === 'jmnode') {
@@ -208,61 +204,55 @@
 
                 if (jmnode) {
                     var nodeId = jmnode.getAttribute('nodeid');
-                    if (nodeId) {
-                        currentSelectedNodeId = nodeId;
+                    if (hoverTimer) clearTimeout(hoverTimer);
 
-                        // 显示窗口
-                        editor.style.display = 'block';
-
-                        // 定位窗口
-                        var rect = jmnode.getBoundingClientRect();
-                        var left = rect.right + 10;
-                        var top = rect.top;
-
-                        // 简单的防止溢出视口逻辑
-                        if (left + 320 > window.innerWidth) {
-                            // 如果右侧放不下，放下面或左侧
-                            left = rect.left - 320;
-                            if (left < 0) left = 10;
+                    // 200ms 防抖
+                    hoverTimer = setTimeout(function () {
+                        if (nodeId) {
+                            currentSelectedNodeId = nodeId;
+                            showEditorForNode(jmnode, nodeId);
                         }
-
-                        editor.style.left = left + 'px';
-                        editor.style.top = top + 'px';
-
-                        renderEditor(nodeId);
-                    }
+                    }, 200);
                 }
             });
 
-            // 防止在编辑器里操作时触发关闭
+            container.addEventListener('mouseout', function (e) {
+                var target = e.target;
+                var jmnode = target.closest ? target.closest('jmnode') : null;
+                if (jmnode && hoverTimer) {
+                    clearTimeout(hoverTimer);
+                    hoverTimer = null;
+                }
+            });
+
             editor.addEventListener('mousedown', function (e) {
                 e.stopPropagation();
             });
-            // 防止移动时冒泡
             editor.addEventListener('mouseover', function (e) {
                 e.stopPropagation();
             });
 
-
-            // 1. 点击空白处窗口消失
+            // 监听全局点击事件，点击空白处关闭窗口
             document.addEventListener('mousedown', function (e) {
                 if (editor.contains(e.target)) return;
 
                 var target = e.target;
                 var jmnode = target.closest ? target.closest('jmnode') : null;
-                if (jmnode) return; // 点击节点时不关闭
+                if (jmnode) return;
 
                 editor.style.display = 'none';
                 currentSelectedNodeId = null;
             });
 
-            // 2. 窗口添加键值对
+            // 2. 绑定“添加”按钮事件
             document.getElementById('btn_add').onclick = function () {
                 if (!currentSelectedNodeId) return;
                 var key = document.getElementById('new_key').value;
                 var val = document.getElementById('new_val').value;
                 if (key) {
                     var node = _jm.get_node(currentSelectedNodeId);
+                    if (!node) return;
+
                     var data = getCustomData(node);
                     data[key] = val;
 
@@ -274,15 +264,39 @@
             };
         }
 
-        // 获取自定义数据
+        function showEditorForNode(jmnode, nodeId) {
+            document.getElementById('new_key').value = '';
+            document.getElementById('new_val').value = '';
+
+            editor.style.display = 'block';
+
+            var rect = jmnode.getBoundingClientRect();
+            var left = rect.right + 10;
+            var top = rect.top;
+
+            if (left + 320 > window.innerWidth) {
+                left = rect.left - 320;
+                if (left < 0) left = 10;
+            }
+
+            var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+            editor.style.left = (left + scrollLeft) + 'px';
+            editor.style.top = (top + scrollTop) + 'px';
+
+            renderEditor(nodeId);
+        }
+
         function getCustomData(node) {
+            if (!node) return {};
+            if (!node.data) node.data = {};
             if (!node.data.customFields) {
                 node.data.customFields = {};
             }
             return node.data.customFields;
         }
 
-        // 3. 窗口里可以实现键值对的展示
         function renderEditor(nodeId) {
             var node = _jm.get_node(nodeId);
             if (!node) return;
@@ -299,14 +313,14 @@
                 keySpan.style.width = '100px';
                 keySpan.innerText = key;
 
-                // 5. 值的修改并自动保存
+                // 3. 显示并允许修改 Value（自动保存）
                 var valInput = document.createElement('input');
-                valInput.value = data[key];
+                valInput.value = data[key] || '';
                 valInput.oninput = function (e) {
                     data[key] = e.target.value;
                 };
 
-                // 4. 键值对的删除
+                // 4. 删除按钮
                 var delBtn = document.createElement('button');
                 delBtn.className = 'btn-delete';
                 delBtn.innerText = 'X';
